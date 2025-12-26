@@ -58,8 +58,14 @@ export default function MealsScreen() {
                 imagePath = image;
             }
 
+            // Get user metadata for denormalization
+            const username = session.user.user_metadata?.full_name || 'Anonymous';
+            const user_avatar = session.user.user_metadata?.avatar_url || null;
+
             const updates = {
                 user_id: session.user.id,
+                username,    // Saving directly to log
+                user_avatar, // Saving directly to log
                 meal_type: mealType,
                 description,
                 image_url: imagePath,
@@ -69,15 +75,16 @@ export default function MealsScreen() {
             const { error } = await supabase.from('logs_meal').insert(updates);
             if (error) {
                 console.log(error);
+                throw error;
             }
 
             Alert.alert('Success', 'Meal logged!');
             setDescription('');
             setImage(null);
-            fetchHistory(); // Refresh history
+            fetchHistory();
         } catch (error) {
             if (error instanceof Error) {
-                Alert.alert(error.message);
+                Alert.alert('Error logging meal', error.message);
             }
         } finally {
             setLoading(false);

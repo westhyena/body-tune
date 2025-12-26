@@ -9,10 +9,10 @@ export default function CommunityScreen() {
 
     const fetchPosts = async () => {
         setLoading(true);
-        // Fetch meals for the feed
+        // Direct select with no joins needed
         const { data: meals, error } = await supabase
             .from('logs_meal')
-            .select('*, profiles(username, avatar_url)')
+            .select('*')
             .order('created_at', { ascending: false })
             .limit(20);
 
@@ -27,10 +27,15 @@ export default function CommunityScreen() {
     const renderItem = ({ item }: { item: any }) => (
         <View className="bg-white mb-4 rounded-xl overflow-hidden shadow-sm mx-4 mt-2">
             <View className="p-3 flex-row items-center gap-3">
-                <View className="w-10 h-10 bg-gray-200 rounded-full items-center justify-center">
-                    <Ionicons name="person" size={20} color="gray" />
-                </View>
-                <Text className="font-bold text-gray-800">User {item.user_id?.slice(0, 4)}...</Text>
+                {item.user_avatar ? (
+                    <Image source={{ uri: item.user_avatar }} className="w-10 h-10 rounded-full bg-gray-200" />
+                ) : (
+                    <View className="w-10 h-10 bg-gray-200 rounded-full items-center justify-center">
+                        <Ionicons name="person" size={20} color="gray" />
+                    </View>
+                )}
+
+                <Text className="font-bold text-gray-800">{item.username || `User ${item.user_id?.slice(0, 4)}`}</Text>
                 <Text className="text-gray-400 text-xs ml-auto">{new Date(item.created_at).toLocaleDateString()}</Text>
             </View>
 
