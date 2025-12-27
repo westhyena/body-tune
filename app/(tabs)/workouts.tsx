@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Switch, Platform } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 export default function WorkoutsScreen() {
     const [exercise, setExercise] = useState('');
@@ -9,6 +10,11 @@ export default function WorkoutsScreen() {
     const [intensity, setIntensity] = useState('Medium');
     const [loading, setLoading] = useState(false);
     const [history, setHistory] = useState<any[]>([]);
+
+    // New features
+    const [isPublic, setIsPublic] = useState(true);
+    const [logTime, setLogTime] = useState(new Date());
+    const [showDatePicker, setShowDatePicker] = useState(false);
 
     const fetchHistory = async () => {
         const { data: { session } } = await supabase.auth.getSession();
@@ -18,7 +24,7 @@ export default function WorkoutsScreen() {
             .from('logs_workout')
             .select('*')
             .eq('user_id', session.user.id)
-            .order('created_at', { ascending: false })
+            .order('log_time', { ascending: false }) // Sort by log_time
             .limit(5);
 
         if (data) setHistory(data);
@@ -39,18 +45,25 @@ export default function WorkoutsScreen() {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) throw new Error('No user on the session!');
 
+            const username = session.user.user_metadata?.full_name || 'Anonymous';
+            const user_avatar = session.user.user_metadata?.avatar_url || null;
+
             const updates = {
                 user_id: session.user.id,
+                username,
+                user_avatar,
                 exercise,
                 duration: parseInt(duration),
                 intensity,
+                is_public: isPublic,           // New
+                log_time: logTime.toISOString(), // New
                 created_at: new Date(),
             };
 
             const { error } = await supabase.from('logs_workout').insert(updates);
             if (error) {
-                // Alert.alert('Error', error.message);
                 console.log(error);
+                throw error;
             }
 
             Alert.alert('Workout Complete!', 'Keep up the momentum!');
@@ -67,6 +80,56 @@ export default function WorkoutsScreen() {
     return (
         <ScrollView className="flex-1 bg-white p-4">
             <Text className="text-2xl font-bold mb-6 mt-10">Log Workout</Text>
+
+            {/* Time Picker */}
+            <View className="mb-6 flex-row items-center justify-between">
+                <Text className="text-gray-600 font-semibold">Time</Text>
+                {Platform.OS === 'web' ? (
+                    <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '10px' }}>
+                        <input
+                            type="datetime-local"
+                            value={new Date(logTime.getTime() - (logTime.getTimezoneOffset() * 60000)).toISOString().slice(0, 16)}
+                            onChange={(e) => setLogTime(new Date(e.target.value))}
+                            style={{ padding: '8px', borderRadius: '8px', border: '1px solid #ccc' }}
+                        />
+                    </div>
+                ) : Platform.OS === 'android' ? (
+                    <TouchableOpacity onPress={() => setShowDatePicker(true)} className="bg-gray-100 px-4 py-2 rounded-lg">
+                        <Text>{logTime.toLocaleString()}</Text>
+                    </TouchableOpacity>
+                ) : (
+                    <DateTimePicker
+                        testID="dateTimePicker"
+                        value={logTime}
+                        mode={'datetime'}
+                        is24Hour={true}
+                        onChange={(event, date) => date && setLogTime(date)}
+                    />
+                )}
+                {Platform.OS === 'android' && showDatePicker && (
+                    <DateTimePicker
+                        testID="dateTimePicker"
+                        value={logTime}
+                        mode={'datetime'}
+                        is24Hour={true}
+                        onChange={(e, date) => {
+                            setShowDatePicker(false);
+                            if (date) setLogTime(date);
+                        }}
+                    />
+                )}
+            </View>
+
+            {/* Visibility Switch */}
+            <View className="mb-6 flex-row items-center justify-between">
+                <Text className="text-gray-600 font-semibold">Share to Community</Text>
+                <Switch
+                    trackColor={{ false: "#767577", true: "#3b82f6" }}
+                    thumbColor={isPublic ? "#f4f3f4" : "#f4f3f4"}
+                    onValueChange={setIsPublic}
+                    value={isPublic}
+                />
+            </View>
 
             <View className="mb-6">
                 <Text className="text-gray-600 mb-2">Exercise</Text>
@@ -123,7 +186,10 @@ export default function WorkoutsScreen() {
                         <View>
                             <Text className="font-semibold text-lg">{item.exercise}</Text>
                             <Text className="text-gray-500 text-sm">{item.duration} min • {item.intensity}</Text>
-                            <Text className="text-gray-400 text-xs mt-1">{new Date(item.created_at).toLocaleDateString()}</Text>
+                            <View className="flex-row items-center gap-2 mt-1">
+                                <Text className="text-gray-400 text-xs">{new Date(item.log_time).toLocaleString()}</Text>
+                                {!item.is_public && <Ionicons name="lock-closed" size={12} color="gray" />}
+                            </View>
                         </View>
                         <View className="w-10 h-10 rounded-full bg-blue-100 items-center justify-center">
                             <Ionicons name="fitness" size={20} color="#3b82f6" />
