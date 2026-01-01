@@ -3,8 +3,10 @@ import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityInd
 import { supabase } from '../../lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { useCharacter } from '../../context/CharacterContext';
 
 export default function WorkoutsScreen() {
+    const { exercise: doExercise } = useCharacter();
     const [exercise, setExercise] = useState('');
     const [duration, setDuration] = useState('');
     const [intensity, setIntensity] = useState('Medium');
@@ -67,6 +69,11 @@ export default function WorkoutsScreen() {
             }
 
             Alert.alert('Workout Complete!', 'Keep up the momentum!');
+
+            // Calculate intensity value
+            const intensityValue = intensity === 'High' ? 5 : intensity === 'Medium' ? 3 : 1;
+            await doExercise(intensityValue);
+
             setExercise('');
             setDuration('');
             fetchHistory();

@@ -108,3 +108,29 @@ create policy "Users can delete their own comments." on community_comments for d
 -- 8. Clean up Triggers
 drop trigger if exists on_auth_user_created on auth.users;
 drop function if exists public.handle_new_user();
+
+-- 9. Create Character State Table (Gamification)
+create table character_state (
+  user_id uuid references auth.users not null primary key,
+  level int default 1 not null,
+  exp int default 0 not null,
+  hp int default 100 not null,
+  fullness int default 100 not null,
+  energy int default 100 not null,
+  mood text default 'happy', -- happy, neutral, sad, sick
+  last_interaction_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- 10. Enable RLS for Character State
+alter table character_state enable row level security;
+
+-- 11. Policies for Character State
+drop policy if exists "Users can view their own character." on character_state;
+create policy "Users can view their own character." on character_state for select using ( auth.uid() = user_id );
+
+drop policy if exists "Users can update their own character." on character_state;
+create policy "Users can update their own character." on character_state for update using ( auth.uid() = user_id );
+
+drop policy if exists "Users can insert their own character." on character_state;
+create policy "Users can insert their own character." on character_state for insert with check ( auth.uid() = user_id );

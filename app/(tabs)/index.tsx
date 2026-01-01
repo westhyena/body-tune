@@ -1,69 +1,72 @@
-import { View, Text, Switch, ScrollView, Platform } from 'react-native';
-import { useState, useEffect } from 'react';
+import { View, Text, ScrollView, RefreshControl } from 'react-native';
+import { useCharacter } from '../../context/CharacterContext';
+import CharacterDisplay from '../../components/gamification/CharacterDisplay';
+import StatusBars from '../../components/gamification/StatusBars';
 import { Pedometer } from 'expo-sensors';
+import { useEffect, useState } from 'react';
 
 export default function HomeScreen() {
-  const [isPedometerAvailable, setIsPedometerAvailable] = useState('checking');
-  const [currentStepCount, setCurrentStepCount] = useState(0);
-  const [pastStepCount, setPastStepCount] = useState(0);
+  const { character, loading, refreshCharacter } = useCharacter();
+  const [steps, setSteps] = useState(0);
 
+  // Example Pedometer Display (Optional overlay or just rely on Context logic in background)
   useEffect(() => {
-    const subscribe = async () => {
-      const isAvailable = await Pedometer.isAvailableAsync();
-      setIsPedometerAvailable(String(isAvailable));
-
-      if (isAvailable) {
-        // Watch for updates
-        const subscription = Pedometer.watchStepCount(result => {
-          setCurrentStepCount(result.steps);
-        });
-
-        // Get past successful steps (e.g. from midnight)
-        const end = new Date();
+    Pedometer.isAvailableAsync().then(available => {
+      if (available) {
         const start = new Date();
         start.setHours(0, 0, 0, 0);
-
-        const pastSteps = await Pedometer.getStepCountAsync(start, end);
-        if (pastSteps) {
-          setPastStepCount(pastSteps.steps);
-        }
-
-        return subscription;
+        const end = new Date();
+        Pedometer.getStepCountAsync(start, end).then(result => {
+          setSteps(result.steps);
+        });
       }
-    };
-
-    let subscription: any;
-    subscribe().then(sub => subscription = sub);
-
-    return () => {
-      subscription && subscription.remove();
-    };
+    });
   }, []);
 
-  const totalSteps = pastStepCount + currentStepCount;
+  if (loading) {
+    return (
+      <View className="flex-1 items-center justify-center bg-white">
+        <Text>Loading BodyTune...</Text>
+      </View>
+    );
+  }
+
+  if (!character) {
+    return (
+      <View className="flex-1 items-center justify-center bg-white p-6">
+        <Text className="text-xl font-bold mb-2">Welcome to BodyTune!</Text>
+        <Text className="text-gray-500 text-center">Creating your digital twin...</Text>
+      </View>
+    );
+  }
 
   return (
-    <ScrollView className="flex-1 bg-white">
+    <ScrollView
+      className="flex-1 bg-white"
+      contentContainerStyle={{ paddingBottom: 40 }}
+      refreshControl={<RefreshControl refreshing={loading} onRefresh={refreshCharacter} />}
+    >
       <View className="p-6 pt-12 items-center">
         <Text className="text-3xl font-bold text-gray-900 mb-2">BodyTune</Text>
-        <Text className="text-blue-500 font-semibold mb-8">Defy Gravity</Text>
+        <Text className="text-blue-500 font-semibold mb-8">Digital Twin</Text>
 
-        <View className="bg-blue-50 w-64 h-64 rounded-full items-center justify-center shadow-lg border-4 border-blue-200">
-          <Text className="text-6xl font-extrabold text-blue-600">{totalSteps}</Text>
-          <Text className="text-gray-500 text-lg mt-2">Steps Today</Text>
+        <CharacterDisplay mood={character.mood} level={character.level} />
+
+        <View className="mt-8 w-full">
+          <StatusBars
+            hp={character.hp}
+            fullness={character.fullness}
+            energy={character.energy}
+            exp={character.exp}
+          />
         </View>
 
-        <View className="mt-10 w-full p-4 bg-gray-50 rounded-xl">
-          <Text className="text-lg font-bold mb-4">Status</Text>
-          <View className="flex-row justify-between mb-2">
-            <Text className="text-gray-600">Pedometer Available</Text>
-            <Text className="font-semibold">{isPedometerAvailable}</Text>
+        <View className="mt-6 w-full bg-blue-50 p-4 rounded-xl flex-row justify-between items-center">
+          <View>
+            <Text className="text-blue-800 font-bold text-lg">Daily Activity</Text>
+            <Text className="text-blue-600 text-xs">Based on Pedometer</Text>
           </View>
-          {Platform.OS === 'web' && (
-            <Text className="text-orange-500 text-sm mt-2">
-              Note: Pedometer is not available on Web. Please test on a real device.
-            </Text>
-          )}
+          <Text className="text-2xl font-extrabold text-blue-600">{steps} Steps</Text>
         </View>
       </View>
     </ScrollView>

@@ -4,8 +4,10 @@ import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../../lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { useCharacter } from '../../context/CharacterContext';
 
 export default function MealsScreen() {
+    const { feed } = useCharacter();
     const [image, setImage] = useState<string | null>(null);
     const [description, setDescription] = useState('');
     const [mealType, setMealType] = useState('Breakfast');
@@ -86,6 +88,7 @@ export default function MealsScreen() {
             }
 
             Alert.alert('Success', 'Meal logged!');
+            await feed(20); // Feed the character (MVP: Fixed amount)
             setDescription('');
             setImage(null);
             fetchHistory();
